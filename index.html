@@ -114,6 +114,29 @@
         .chart.small {
           height: 216px; /* +20% from 180px */
         }
+        /* Mobile: left-align headings and latest line */
+        .title {
+          text-align: left;
+        }
+        .latest-line {
+          text-align: left;
+        }
+        /* Mobile: enlarge Plotly modebar buttons and position in title row */
+        .js-plotly-plot {
+          overflow: visible;
+        }
+        .js-plotly-plot .modebar {
+          right: 6px !important;
+          top: -28px !important; /* lift into the title row */
+          padding: 6px 4px;
+        }
+        .js-plotly-plot .modebar-btn {
+          padding: 6px 6px !important;
+        }
+        .js-plotly-plot .modebar-btn svg {
+          width: 22px;
+          height: 22px;
+        }
       }
 
       .zoom-controls {
@@ -855,7 +878,13 @@
           displaylogo: false,
           scrollZoom: false,
           dragmode: "pan",
-          modeBarButtonsToRemove: ["toImage", "lasso2d", "select2d"],
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
         };
 
         Plotly.newPlot(
@@ -951,7 +980,13 @@
           displaylogo: false,
           scrollZoom: false,
           dragmode: "pan",
-          modeBarButtonsToRemove: ["toImage", "lasso2d", "select2d"],
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
         };
 
         Plotly.newPlot(
@@ -1059,7 +1094,13 @@
           displaylogo: false,
           scrollZoom: false,
           dragmode: "pan",
-          modeBarButtonsToRemove: ["toImage", "lasso2d", "select2d"],
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
         };
 
         Plotly.newPlot(
@@ -1158,7 +1199,13 @@
           displaylogo: false,
           scrollZoom: false,
           dragmode: "pan",
-          modeBarButtonsToRemove: ["toImage", "lasso2d", "select2d"],
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
         };
 
         Plotly.newPlot("plotly-rcap", [tracePrice, traceRcap], layout, config);
@@ -1253,7 +1300,13 @@
           displaylogo: false,
           scrollZoom: false,
           dragmode: "pan",
-          modeBarButtonsToRemove: ["toImage", "lasso2d", "select2d"],
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
         };
 
         Plotly.newPlot(
