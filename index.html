@@ -107,6 +107,7 @@
         }
         .panel {
           padding: 6px 6px 2px 6px; /* tighter sides */
+          position: relative;
         }
         .chart {
           height: 390px; /* +20% from 325px */
@@ -117,9 +118,11 @@
         /* Mobile: left-align headings and latest line */
         .title {
           text-align: left;
+          padding-right: 110px;
         }
         .latest-line {
           text-align: left;
+          font-size: 12px;
         }
         /* Mobile: enlarge Plotly modebar buttons and position in title row */
         .js-plotly-plot {
@@ -128,14 +131,14 @@
         .js-plotly-plot .modebar {
           right: 6px !important;
           top: -28px !important; /* lift into the title row */
-          padding: 6px 4px;
+          padding: 5px 4px; /* ~-15% */
         }
         .js-plotly-plot .modebar-btn {
-          padding: 6px 6px !important;
+          padding: 5px 5px !important;
         }
         .js-plotly-plot .modebar-btn svg {
-          width: 22px;
-          height: 22px;
+          width: 19px;
+          height: 19px;
         }
       }
 
