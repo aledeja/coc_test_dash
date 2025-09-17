@@ -39,15 +39,17 @@
       }
       .title {
         font-weight: 600;
-        font-size: 14px;
+        font-size: 18px;
         letter-spacing: 0.2px;
         margin: 8px 6px;
+        text-align: center;
       }
-      .title .latest {
+      .latest-line {
         font-weight: 500;
-        font-size: 12px;
+        font-size: 16px;
         color: var(--muted);
-        margin-left: 8px;
+        text-align: center;
+        margin: 2px 6px 6px;
       }
       .chart {
         height: 400px;
@@ -170,31 +172,36 @@
     <div class="wrap">
       <!-- Price vs SOPR_STH -->
       <div class="panel">
-        <div class="title">Price vs SOPR (STH) <span class="latest" id="latest-sopr"></span></div>
+        <div class="title">SOPR (STH)</div>
+        <div class="latest-line" id="latest-sopr"></div>
         <div id="plotly-sopr" class="chart"></div>
       </div>
 
       <!-- Price vs Realized Profit -->
       <div class="panel">
-        <div class="title">Price vs Realized Profit <span class="latest" id="latest-profit"></span></div>
+        <div class="title">Realized Profit</div>
+        <div class="latest-line" id="latest-profit"></div>
         <div id="plotly-profit" class="chart"></div>
       </div>
 
       <!-- Price vs MVRV_STH -->
       <div class="panel">
-        <div class="title">Price vs MVRV (STH) <span class="latest" id="latest-mvrv"></span></div>
+        <div class="title">MVRV (STH)</div>
+        <div class="latest-line" id="latest-mvrv"></div>
         <div id="plotly-mvrv" class="chart"></div>
       </div>
 
       <!-- Price vs Realized Cap -->
       <div class="panel">
-        <div class="title">Price vs Realized Cap <span class="latest" id="latest-rcap"></span></div>
+        <div class="title">Realized Cap</div>
+        <div class="latest-line" id="latest-rcap"></div>
         <div id="plotly-rcap" class="chart"></div>
       </div>
 
       <!-- Price vs Realized Price STH -->
       <div class="panel">
-        <div class="title">Price vs Realized Price (STH) <span class="latest" id="latest-rprice"></span></div>
+        <div class="title">Realized Price (STH)</div>
+        <div class="latest-line" id="latest-rprice"></div>
         <div id="plotly-rprice" class="chart"></div>
       </div>
     </div>
@@ -214,6 +221,17 @@
       const textColor = getComputedStyle(document.documentElement)
         .getPropertyValue("--text")
         .trim();
+      // compute BTC price axis range from $5,000 up to highest data point (log scale)
+      function computePriceLogRange(prices) {
+        let maxP = 5000;
+        for (let i = 0; i < prices.length; i++) {
+          const p = prices[i];
+          if (p != null && isFinite(p)) {
+            if (p > maxP) maxP = p;
+          }
+        }
+        return [Math.log10(5000), Math.log10(maxP)];
+      }
 
       function parseDateToEpochSeconds(d) {
         const [dd, mm, yyyy] = d.split("/").map(Number);
@@ -749,7 +767,7 @@
           name: "BTC",
           x: t,
           y: price,
-          line: { color: colorPrice, width: 1.8 },
+          line: { color: colorPrice, width: 0.9 },
           yaxis: "y",
         };
         const traceSopr = {
@@ -793,7 +811,7 @@
           yaxis: {
             title: "BTC Price ($)",
             type: "log",
-            range: [Math.log10(5000), null],
+            range: computePriceLogRange(price),
             nticks: 2,
             showgrid: false,
             zeroline: false,
@@ -856,7 +874,7 @@
           name: "BTC",
           x: t,
           y: price,
-          line: { color: colorPrice, width: 1.8 },
+          line: { color: colorPrice, width: 0.9 },
           yaxis: "y",
         };
         const traceProfit = {
@@ -889,7 +907,7 @@
           yaxis: {
             title: "BTC Price ($)",
             type: "log",
-            range: [Math.log10(5000), null],
+            range: computePriceLogRange(price),
             nticks: 2,
             showgrid: false,
             zeroline: false,
@@ -952,7 +970,7 @@
           name: "BTC",
           x: t,
           y: price,
-          line: { color: colorPrice, width: 1.8 },
+          line: { color: colorPrice, width: 0.9 },
           yaxis: "y",
         };
         const traceMvrv = {
@@ -996,7 +1014,7 @@
           yaxis: {
             title: "BTC Price ($)",
             type: "log",
-            range: [Math.log10(5000), null],
+            range: computePriceLogRange(price),
             nticks: 2,
             showgrid: false,
             zeroline: false,
@@ -1060,7 +1078,7 @@
           name: "BTC",
           x: t,
           y: price,
-          line: { color: colorPrice, width: 1.8 },
+          line: { color: colorPrice, width: 0.9 },
           yaxis: "y",
         };
         const traceRcap = {
@@ -1096,7 +1114,7 @@
           yaxis: {
             title: "BTC Price ($)",
             type: "log",
-            range: [Math.log10(5000), null],
+            range: computePriceLogRange(price),
             nticks: 2,
             showgrid: false,
             zeroline: false,
@@ -1154,7 +1172,7 @@
           name: "BTC",
           x: t,
           y: price,
-          line: { color: colorPrice, width: 1.8 },
+          line: { color: colorPrice, width: 0.9 },
           yaxis: "y",
         };
         const traceRPrice = {
@@ -1188,7 +1206,7 @@
           yaxis: {
             title: "BTC Price ($)",
             type: "log",
-            range: [Math.log10(5000), null],
+            range: computePriceLogRange(price),
             nticks: 2,
             showgrid: false,
             zeroline: false,
@@ -1344,14 +1362,19 @@
         buildRealizedPricePlotly(t, data.PriceUSD, data.RealizedPrice_STH);
 
         // Update latest value badges (2 decimals, per metric)
-        function setLatest(elId, val, opts={}) {
+        function setLatest(elId, val, opts = {}) {
           const el = document.getElementById(elId);
           if (!el) return;
-          if (val == null || !isFinite(val)) { el.textContent = ""; return; }
+          if (val == null || !isFinite(val)) {
+            el.textContent = "";
+            return;
+          }
           const digits = opts.digits ?? 2;
           const prefix = opts.prefix ?? "";
           const suffix = opts.suffix ?? "";
-          el.textContent = `${prefix}${val.toFixed(digits)}${suffix}`;
+          el.textContent = `Latest Value: ${prefix}${val.toFixed(
+            digits
+          )}${suffix}`;
         }
         // find last valid values from arrays
         const lastNum = (arr) => {
@@ -1364,8 +1387,13 @@
         setLatest("latest-sopr", lastNum(data.SOPR_STH));
         setLatest("latest-profit", lastNum(data.RealizedProfit));
         setLatest("latest-mvrv", lastNum(data.MVRV_STH));
-        setLatest("latest-rcap", lastNum(data.RealizedCap), { prefix: "$", digits: 0 });
-        setLatest("latest-rprice", lastNum(data.RealizedPrice_STH), { prefix: "$" });
+        setLatest("latest-rcap", lastNum(data.RealizedCap), {
+          prefix: "$",
+          digits: 0,
+        });
+        setLatest("latest-rprice", lastNum(data.RealizedPrice_STH), {
+          prefix: "$",
+        });
 
         // Setup zoom controls after charts are created
         setupZoomControls();
