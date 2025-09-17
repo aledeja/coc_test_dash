@@ -94,11 +94,17 @@
         }
       }
       @media (max-width: 640px) {
+        .wrap {
+          padding: 6px;
+        }
+        .panel {
+          padding: 6px 6px 2px 6px; /* tighter sides */
+        }
         .chart {
-          height: 325px;
+          height: 390px; /* +20% from 325px */
         }
         .chart.small {
-          height: 180px;
+          height: 216px; /* +20% from 180px */
         }
       }
 
@@ -1342,6 +1348,9 @@
           // Y-axis values & labels: 25% reduction
           const yTickSize = isMobile ? 9 : 12; // 12 -> 9
           const yTitleSize = isMobile ? 11 : 14; // 14 -> 11
+          // Tighten left/right margins on mobile so chart fills width
+          const ml = isMobile ? 48 : 64;
+          const mr = isMobile ? 48 : 64;
           const ids = [
             "plotly-sopr",
             "plotly-profit",
@@ -1357,6 +1366,8 @@
                 "yaxis2.tickfont.size": yTickSize,
                 "yaxis.title.font.size": yTitleSize,
                 "yaxis2.title.font.size": yTitleSize,
+                "margin.l": ml,
+                "margin.r": mr,
               });
             }
           });
