@@ -187,9 +187,6 @@
     <div class="zoom-controls">
       <button class="zoom-btn active" data-period="all">Since 2022</button>
       <button class="zoom-btn" data-period="lastyear">Last Year</button>
-      <input id="range-start" type="date" />
-      <input id="range-end" type="date" />
-      <button class="zoom-btn" id="apply-range">Apply</button>
     </div>
 
     <div class="wrap">
@@ -1337,17 +1334,7 @@
           });
         });
 
-        // Apply custom range
-        const applyBtn = document.getElementById("apply-range");
-        if (applyBtn) {
-          applyBtn.addEventListener("click", () => {
-            const s = document.getElementById("range-start").value;
-            const e = document.getElementById("range-end").value;
-            const start = s ? new Date(s) : null;
-            const end = e ? new Date(e) : null;
-            zoomAllCharts("custom", start, end);
-          });
-        }
+        // Custom range controls removed
       }
 
       function zoomAllCharts(period, customStart = null, customEnd = null) {
@@ -1486,20 +1473,7 @@
         applyMobileTicks();
         window.addEventListener("resize", applyMobileTicks);
 
-        // Initialize date inputs with dataset bounds
-        const tsDates = data.x.map((ts) => new Date(ts * 1000));
-        const minDate = new Date(Math.min(...tsDates.map((d) => d.getTime())));
-        const maxDate = new Date(Math.max(...tsDates.map((d) => d.getTime())));
-        const sEl = document.getElementById("range-start");
-        const eEl = document.getElementById("range-end");
-        if (sEl && eEl) {
-          const toInput = (d) =>
-            new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-              .toISOString()
-              .slice(0, 10);
-          sEl.value = toInput(minDate);
-          eEl.value = toInput(maxDate);
-        }
+        // Date inputs removed
 
         // uPlot version preserved above for quick reactivation if needed
       })();
