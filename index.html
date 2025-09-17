@@ -95,7 +95,7 @@
       }
       @media (max-width: 640px) {
         .chart {
-          height: 260px;
+          height: 325px;
         }
         .chart.small {
           height: 180px;
@@ -1333,6 +1333,36 @@
 
         // Setup zoom controls after charts are created
         setupZoomControls();
+
+        // Mobile typography tweaks for axes
+        function applyMobileTicks() {
+          const isMobile = window.matchMedia("(max-width: 640px)").matches;
+          // X-axis dates: 50% reduction as requested earlier
+          const xTickSize = isMobile ? 8 : 12;
+          // Y-axis values & labels: 25% reduction
+          const yTickSize = isMobile ? 9 : 12; // 12 -> 9
+          const yTitleSize = isMobile ? 11 : 14; // 14 -> 11
+          const ids = [
+            "plotly-sopr",
+            "plotly-profit",
+            "plotly-mvrv",
+            "plotly-rcap",
+            "plotly-rprice",
+          ];
+          ids.forEach((id) => {
+            if (document.getElementById(id)) {
+              Plotly.relayout(id, {
+                "xaxis.tickfont.size": xTickSize,
+                "yaxis.tickfont.size": yTickSize,
+                "yaxis2.tickfont.size": yTickSize,
+                "yaxis.title.font.size": yTitleSize,
+                "yaxis2.title.font.size": yTitleSize,
+              });
+            }
+          });
+        }
+        applyMobileTicks();
+        window.addEventListener("resize", applyMobileTicks);
 
         // Initialize date inputs with dataset bounds
         const tsDates = data.x.map((ts) => new Date(ts * 1000));
