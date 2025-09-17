@@ -43,6 +43,12 @@
         letter-spacing: 0.2px;
         margin: 8px 6px;
       }
+      .title .latest {
+        font-weight: 500;
+        font-size: 12px;
+        color: var(--muted);
+        margin-left: 8px;
+      }
       .chart {
         height: 400px;
       }
@@ -164,31 +170,31 @@
     <div class="wrap">
       <!-- Price vs SOPR_STH -->
       <div class="panel">
-        <div class="title">Price vs SOPR (STH)</div>
+        <div class="title">Price vs SOPR (STH) <span class="latest" id="latest-sopr"></span></div>
         <div id="plotly-sopr" class="chart"></div>
       </div>
 
       <!-- Price vs Realized Profit -->
       <div class="panel">
-        <div class="title">Price vs Realized Profit</div>
+        <div class="title">Price vs Realized Profit <span class="latest" id="latest-profit"></span></div>
         <div id="plotly-profit" class="chart"></div>
       </div>
 
       <!-- Price vs MVRV_STH -->
       <div class="panel">
-        <div class="title">Price vs MVRV (STH)</div>
+        <div class="title">Price vs MVRV (STH) <span class="latest" id="latest-mvrv"></span></div>
         <div id="plotly-mvrv" class="chart"></div>
       </div>
 
       <!-- Price vs Realized Cap -->
       <div class="panel">
-        <div class="title">Price vs Realized Cap</div>
+        <div class="title">Price vs Realized Cap <span class="latest" id="latest-rcap"></span></div>
         <div id="plotly-rcap" class="chart"></div>
       </div>
 
       <!-- Price vs Realized Price STH -->
       <div class="panel">
-        <div class="title">Price vs Realized Price (STH)</div>
+        <div class="title">Price vs Realized Price (STH) <span class="latest" id="latest-rprice"></span></div>
         <div id="plotly-rprice" class="chart"></div>
       </div>
     </div>
@@ -1336,6 +1342,30 @@
         buildMvrvPlotly(t, data.PriceUSD, data.MVRV_STH);
         buildRealizedCapPlotly(t, data.PriceUSD, data.RealizedCap);
         buildRealizedPricePlotly(t, data.PriceUSD, data.RealizedPrice_STH);
+
+        // Update latest value badges (2 decimals, per metric)
+        function setLatest(elId, val, opts={}) {
+          const el = document.getElementById(elId);
+          if (!el) return;
+          if (val == null || !isFinite(val)) { el.textContent = ""; return; }
+          const digits = opts.digits ?? 2;
+          const prefix = opts.prefix ?? "";
+          const suffix = opts.suffix ?? "";
+          el.textContent = `${prefix}${val.toFixed(digits)}${suffix}`;
+        }
+        // find last valid values from arrays
+        const lastNum = (arr) => {
+          for (let i = arr.length - 1; i >= 0; i--) {
+            const v = arr[i];
+            if (v != null && isFinite(v)) return v;
+          }
+          return null;
+        };
+        setLatest("latest-sopr", lastNum(data.SOPR_STH));
+        setLatest("latest-profit", lastNum(data.RealizedProfit));
+        setLatest("latest-mvrv", lastNum(data.MVRV_STH));
+        setLatest("latest-rcap", lastNum(data.RealizedCap), { prefix: "$", digits: 0 });
+        setLatest("latest-rprice", lastNum(data.RealizedPrice_STH), { prefix: "$" });
 
         // Setup zoom controls after charts are created
         setupZoomControls();
