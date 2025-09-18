@@ -43,6 +43,20 @@ function parseCsv(text: string): DataRow[] {
   });
 }
 
+// Parse DD/MM/YYYY into a safe Date (UTC noon to avoid DST shifts)
+function parseDayMonthYear(dateStr: string): Date {
+  // Expecting like "15/05/2022"
+  const parts = dateStr.split("/").map((v) => parseInt(v, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) {
+    // Fallback to native Date parse if format unexpected
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? new Date(0) : d;
+  }
+  const [dd, mm, yyyy] = parts;
+  // Use UTC midday to ensure consistent rendering regardless of locale/timezone
+  return new Date(Date.UTC(yyyy, (mm || 1) - 1, dd || 1, 12, 0, 0));
+}
+
 function useCsv(url: string) {
   const [rows, setRows] = useState<DataRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +244,7 @@ export default function CsvDashboard() {
     return <div style={{ padding: 16 }}>Failed to load CSV: {error}</div>;
   if (!rows) return <div style={{ padding: 16 }}>Loading…</div>;
 
-  const x = rows.map((r) => new Date(r.date));
+  const x = rows.map((r) => parseDayMonthYear(r.date));
   const price = rows.map((r) => r.PriceUSD);
 
   return (
