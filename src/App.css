@@ -119,13 +119,12 @@
   .js-plotly-plot .modebar-btn svg { width: 19px; height: 19px; }
 }
 
-.toolbar {
+.zoom-controls {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
-  justify-content: flex-end;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 20px;
 }
 
 .toolbar-btn {
@@ -151,12 +150,7 @@
   padding: 6px 8px;
 }
 
-.zoom-dropdown-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-right: 16px;
-}
+.zoom-dropdown-container { display: none; }
 
 .zoom-dropdown-container label {
   color: #c9d1d9;
@@ -164,33 +158,22 @@
   font-weight: 500;
 }
 
-.zoom-dropdown {
-  background: #1a1d23;
-  border: 1px solid #2b313a;
-  color: #c9d1d9;
+.zoom-btn {
+  background: var(--card);
+  border: 1px solid var(--grid);
+  color: var(--text);
+  padding: 8px 16px;
   border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 14px;
-  min-width: 180px;
   cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
 }
 
-.zoom-dropdown:hover {
-  background: #20242b;
-  border-color: #3d444d;
-}
+.zoom-btn:hover { background: var(--grid); border-color: var(--text); }
 
-.zoom-dropdown:focus {
-  outline: none;
-  border-color: #0969da;
-  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
-}
+.zoom-btn.active { background: #00aab7; border-color: #00aab7; color: white; }
 
-.zoom-dropdown option {
-  background: #1a1d23;
-  color: #c9d1d9;
-  padding: 8px;
-}
+.toolbar, .date-range, .date-input, .zoom-dropdown, .zoom-dropdown option { display: none; }
 
 .toolbar-btn:hover {
   background: #20242b;
