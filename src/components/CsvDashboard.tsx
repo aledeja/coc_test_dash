@@ -15,7 +15,14 @@ type DataRow = {
 const cardColor = "#0b0c10";
 const gridColor = "#1a1c21";
 const textColor = "#e5e7eb";
-const colorPrice = "#f1c40f";
+// Match original HTML palette
+const colorPrice = "#cfd5ff";
+const colorSopr = "#34d399";
+const colorProfit = "#60a5fa";
+const colorMvrv = "#f59e0b";
+const colorCapStroke = "#7dd3fc";
+const colorCapFill = "rgba(125, 211, 252, .15)";
+const colorRPrice = "#f472b6";
 
 function parseCsv(text: string): DataRow[] {
   const lines = text.trim().split(/\r?\n/);
@@ -94,6 +101,9 @@ type ChartCardProps = {
   kind: "line" | "bar" | "area";
   baseline?: number; // for oscillators
   y2Range?: [number, number];
+  xRange?: [Date, Date] | null;
+  metricColor?: string;
+  areaFillColor?: string;
 };
 
 function ChartCard({
@@ -105,6 +115,9 @@ function ChartCard({
   kind,
   baseline,
   y2Range,
+  xRange,
+  metricColor,
+  areaFillColor,
 }: ChartCardProps) {
   const latest = metric.length ? metric[metric.length - 1] : 0;
   const lastTime = x.length ? x[x.length - 1] : new Date();
@@ -130,16 +143,27 @@ function ChartCard({
   };
   let metricTrace: any;
   if (kind === "bar") {
-    metricTrace = { ...traceMetricBase, type: "bar" };
+    metricTrace = {
+      ...traceMetricBase,
+      type: "bar",
+      marker: { color: metricColor || colorProfit },
+    };
   } else if (kind === "area") {
     metricTrace = {
       ...traceMetricBase,
       type: "scatter",
       mode: "lines",
-      fill: "tozeroy",
+      fill: "tonexty",
+      fillcolor: areaFillColor || colorCapFill,
+      line: { color: metricColor || colorCapStroke, width: 1.4 },
     };
   } else {
-    metricTrace = { ...traceMetricBase, type: "scatter", mode: "lines" };
+    metricTrace = {
+      ...traceMetricBase,
+      type: "scatter",
+      mode: "lines",
+      line: { color: metricColor || colorSopr },
+    };
   }
 
   const traces: any[] = [tracePrice, metricTrace];
@@ -163,7 +187,7 @@ function ChartCard({
     font: { color: textColor },
     margin: { l: 64, r: 64, t: 28, b: 48 },
     xaxis: {
-      range: [startDefault, endDefault],
+      range: xRange ?? [startDefault, endDefault],
       gridcolor: gridColor,
       zeroline: false,
       showspikes: true,
@@ -246,9 +270,26 @@ export default function CsvDashboard() {
 
   const x = rows.map((r) => parseDayMonthYear(r.date));
   const price = rows.map((r) => r.PriceUSD);
+  const latestDate = x.length ? x[x.length - 1] : new Date();
+  const since2022: [Date, Date] = [new Date("2022-01-01"), latestDate];
+  const lastYear: [Date, Date] = [new Date("2024-01-01"), latestDate];
+  const [selectedRange, setSelectedRange] = useState<[Date, Date]>(since2022);
 
   return (
     <div className="wrap">
+      <div className="zoom-heading" style={{ gridColumn: "1 / -1", textAlign: "center" }}>Zoom settings</div>
+      <div className="zoom-controls" style={{ gridColumn: "1 / -1" }}>
+        <button className="zoom-btn" onClick={(e) => {
+          document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.remove('active'));
+          (e.currentTarget as HTMLButtonElement).classList.add('active');
+          setSelectedRange(since2022);
+        }}>Since 2022</button>
+        <button className="zoom-btn" onClick={(e) => {
+          document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.remove('active'));
+          (e.currentTarget as HTMLButtonElement).classList.add('active');
+          setSelectedRange(lastYear);
+        }}>Last Year</button>
+      </div>
       <ChartCard
         title="SOPR_STH"
         x={x}
@@ -257,6 +298,8 @@ export default function CsvDashboard() {
         metricName="SOPR_STH"
         kind="line"
         baseline={1}
+        xRange={selectedRange}
+        metricColor={colorSopr}
       />
       <ChartCard
         title="RealizedProfit"
@@ -265,6 +308,8 @@ export default function CsvDashboard() {
         metric={rows.map((r) => r.RealizedProfit)}
         metricName="RealizedProfit"
         kind="bar"
+        xRange={selectedRange}
+        metricColor={colorProfit}
       />
       <ChartCard
         title="MVRV_STH"
@@ -275,6 +320,8 @@ export default function CsvDashboard() {
         kind="line"
         baseline={1}
         y2Range={[0.5, 2.5]}
+        xRange={selectedRange}
+        metricColor={colorMvrv}
       />
       <ChartCard
         title="RealizedCap"
@@ -283,6 +330,9 @@ export default function CsvDashboard() {
         metric={rows.map((r) => r.RealizedCap)}
         metricName="RealizedCap"
         kind="area"
+        xRange={selectedRange}
+        metricColor={colorCapStroke}
+        areaFillColor={colorCapFill}
       />
       <ChartCard
         title="RealizedPrice_STH"
@@ -291,6 +341,8 @@ export default function CsvDashboard() {
         metric={rows.map((r) => r.RealizedPrice_STH)}
         metricName="RealizedPrice_STH"
         kind="line"
+        xRange={selectedRange}
+        metricColor={colorRPrice}
       />
     </div>
   );
