@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import "../App.css";
 
@@ -287,6 +287,20 @@ export default function CsvDashboard() {
     () => (rows ? rows.map((r) => r.PriceUSD) : []),
     [rows]
   );
+  const sopr = useMemo(() => (rows ? rows.map((r) => r.SOPR_STH) : []), [rows]);
+  const realizedProfit = useMemo(
+    () => (rows ? rows.map((r) => r.RealizedProfit) : []),
+    [rows]
+  );
+  const mvrv = useMemo(() => (rows ? rows.map((r) => r.MVRV_STH) : []), [rows]);
+  const realizedCap = useMemo(
+    () => (rows ? rows.map((r) => r.RealizedCap) : []),
+    [rows]
+  );
+  const realizedPriceSTH = useMemo(
+    () => (rows ? rows.map((r) => r.RealizedPrice_STH) : []),
+    [rows]
+  );
   const latestDate = x.length ? x[x.length - 1] : new Date();
   const since2022 = useMemo(
     () => [new Date("2022-05-14"), latestDate] as [Date, Date],
@@ -325,6 +339,170 @@ export default function CsvDashboard() {
   useEffect(() => {
     setSelectedRange(since2022);
   }, [since2022]);
+
+  // Draggable ordering: keep only ids in state; data stays in derived chartDefs
+  type ChartId = "sopr" | "profit" | "mvrv" | "rcap" | "rprice";
+  const chartDefs: Record<
+    ChartId,
+    {
+      id: ChartId;
+      title: string;
+      metric: number[];
+      metricName: string;
+      kind: "line" | "bar" | "area";
+      baseline?: number;
+      y2Range?: [number, number];
+      metricColor?: string;
+      areaFillColor?: string;
+    }
+  > = useMemo(
+    () => ({
+      sopr: {
+        id: "sopr",
+        title: "SOPR_STH",
+        metric: sopr,
+        metricName: "SOPR_STH",
+        kind: "line",
+        baseline: 1,
+        metricColor: colorSopr,
+      },
+      profit: {
+        id: "profit",
+        title: "RealizedProfit",
+        metric: realizedProfit,
+        metricName: "RealizedProfit",
+        kind: "bar",
+        metricColor: colorProfit,
+      },
+      mvrv: {
+        id: "mvrv",
+        title: "MVRV_STH",
+        metric: mvrv,
+        metricName: "MVRV_STH",
+        kind: "line",
+        baseline: 1,
+        y2Range: [0.5, 2.5],
+        metricColor: colorMvrv,
+      },
+      rcap: {
+        id: "rcap",
+        title: "RealizedCap",
+        metric: realizedCap,
+        metricName: "RealizedCap",
+        kind: "area",
+        metricColor: colorCapStroke,
+        areaFillColor: colorCapFill,
+      },
+      rprice: {
+        id: "rprice",
+        title: "RealizedPrice_STH",
+        metric: realizedPriceSTH,
+        metricName: "RealizedPrice_STH",
+        kind: "line",
+        metricColor: colorRPrice,
+      },
+    }),
+    [sopr, realizedProfit, mvrv, realizedCap, realizedPriceSTH]
+  );
+
+  const ALL_IDS: ChartId[] = ["sopr", "profit", "mvrv", "rcap", "rprice"];
+  const ORDER_KEY = "chart_order_v2";
+
+  // Initialize from localStorage synchronously
+  const [order, setOrder] = useState<ChartId[]>(() => {
+    try {
+      const raw = localStorage.getItem(ORDER_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as string[];
+        const isValidId = (v: any): v is ChartId =>
+          ALL_IDS.includes(v as ChartId);
+        const cleaned = Array.from(
+          new Set(parsed.filter(isValidId))
+        ) as ChartId[];
+        if (cleaned.length >= 1) return cleaned; // accept subsets
+      }
+    } catch {}
+    return ["sopr"]; // start with one chart by default
+  });
+  const dragSrc = useRef<ChartId | null>(null);
+  const [pendingAdd, setPendingAdd] = useState<Record<number, ChartId | "">>(
+    {}
+  );
+  const [editing, setEditing] = useState(false);
+  const [draftOrder, setDraftOrder] = useState<ChartId[] | null>(null);
+
+  // Persist on change
+  useEffect(() => {
+    try {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(order));
+    } catch {}
+  }, [order]);
+
+  const handleDragStart = (id: ChartId) => (e: React.DragEvent) => {
+    if (!editing) return;
+    dragSrc.current = id;
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!editing) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+  const handleDrop = (id: ChartId) => (e: React.DragEvent) => {
+    if (!editing) return;
+    e.preventDefault();
+    const src = dragSrc.current;
+    if (!src || src === id) return;
+    const newOrder = [...order];
+    const from = newOrder.indexOf(src);
+    const to = newOrder.indexOf(id);
+    if (from === -1 || to === -1) return;
+    newOrder.splice(to, 0, ...newOrder.splice(from, 1));
+    setOrder(newOrder);
+    dragSrc.current = null;
+  };
+
+  // Drop onto empty slot index
+  const handleDropEmpty = (targetIdx: number) => (e: React.DragEvent) => {
+    if (!editing) return;
+    e.preventDefault();
+    const src = dragSrc.current;
+    if (!src) return;
+    const newOrder = [...order];
+    const from = newOrder.indexOf(src);
+    if (from === -1) return;
+    const to = Math.max(0, Math.min(targetIdx, newOrder.length - 1));
+    newOrder.splice(to, 0, ...newOrder.splice(from, 1));
+    setOrder(newOrder);
+    dragSrc.current = null;
+  };
+
+  const removeAt = (idx: number) => {
+    if (!editing) return;
+    const next = order.filter((_, i) => i !== idx);
+    setOrder(next);
+  };
+  const addAt = (idx: number, id: ChartId) => {
+    if (!editing) return;
+    if (!ALL_IDS.includes(id) || order.includes(id)) return;
+    const next = [...order];
+    next.splice(idx, 0, id);
+    setOrder(next);
+  };
+
+  const beginEdit = () => {
+    setDraftOrder([...order]);
+    setEditing(true);
+  };
+  const saveEdit = () => {
+    setDraftOrder(null);
+    setEditing(false);
+  };
+  const cancelEdit = () => {
+    if (draftOrder) setOrder(draftOrder);
+    setDraftOrder(null);
+    setEditing(false);
+  };
 
   if (error)
     return <div style={{ padding: 16 }}>Failed to load CSV: {error}</div>;
@@ -400,60 +578,127 @@ export default function CsvDashboard() {
           7D
         </button>
       </div>
-      <ChartCard
-        title="SOPR_STH"
-        x={x}
-        price={price}
-        metric={rows.map((r) => r.SOPR_STH)}
-        metricName="SOPR_STH"
-        kind="line"
-        baseline={1}
-        xRange={selectedRange}
-        metricColor={colorSopr}
-      />
-      <ChartCard
-        title="RealizedProfit"
-        x={x}
-        price={price}
-        metric={rows.map((r) => r.RealizedProfit)}
-        metricName="RealizedProfit"
-        kind="bar"
-        xRange={selectedRange}
-        metricColor={colorProfit}
-      />
-      <ChartCard
-        title="MVRV_STH"
-        x={x}
-        price={price}
-        metric={rows.map((r) => r.MVRV_STH)}
-        metricName="MVRV_STH"
-        kind="line"
-        baseline={1}
-        y2Range={[0.5, 2.5]}
-        xRange={selectedRange}
-        metricColor={colorMvrv}
-      />
-      <ChartCard
-        title="RealizedCap"
-        x={x}
-        price={price}
-        metric={rows.map((r) => r.RealizedCap)}
-        metricName="RealizedCap"
-        kind="area"
-        xRange={selectedRange}
-        metricColor={colorCapStroke}
-        areaFillColor={colorCapFill}
-      />
-      <ChartCard
-        title="RealizedPrice_STH"
-        x={x}
-        price={price}
-        metric={rows.map((r) => r.RealizedPrice_STH)}
-        metricName="RealizedPrice_STH"
-        kind="line"
-        xRange={selectedRange}
-        metricColor={colorRPrice}
-      />
+      <div style={{ gridColumn: "1 / -1", textAlign: "right", marginTop: -6 }}>
+        {!editing ? (
+          <button className="zoom-btn" onClick={beginEdit}>
+            Customise
+          </button>
+        ) : (
+          <>
+            <button className="zoom-btn" onClick={saveEdit}>
+              Save
+            </button>
+            <button className="zoom-btn" onClick={cancelEdit}>
+              Cancel
+            </button>
+          </>
+        )}
+      </div>
+      {editing
+        ? Array.from({ length: ALL_IDS.length }).map((_, slotIdx) => {
+            const id = order[slotIdx];
+            const remaining = ALL_IDS.filter((cid) => !order.includes(cid));
+            if (id) {
+              const c = chartDefs[id];
+              return (
+                <div
+                  key={id}
+                  className="draggable-card"
+                  draggable
+                  onDragStart={handleDragStart(id)}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop(id)}
+                  style={{ cursor: "move" }}
+                  title="Drag to reorder"
+                >
+                  <div className="drag-hint">⇅ Drag to reorder</div>
+                  <div className="slot-actions">
+                    <button
+                      className="remove-btn"
+                      onClick={() => removeAt(slotIdx)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <ChartCard
+                    title={c.title}
+                    x={x}
+                    price={price}
+                    metric={c.metric}
+                    metricName={c.metricName}
+                    kind={c.kind}
+                    baseline={c.baseline}
+                    y2Range={c.y2Range}
+                    xRange={selectedRange}
+                    metricColor={c.metricColor}
+                    areaFillColor={c.areaFillColor}
+                  />
+                </div>
+              );
+            }
+            const sel = (pendingAdd[slotIdx] || remaining[0] || "") as
+              | ChartId
+              | "";
+            return (
+              <div
+                key={"empty-" + slotIdx}
+                className="panel slot-empty"
+                onDragOver={handleDragOver}
+                onDrop={handleDropEmpty(slotIdx)}
+              >
+                <div className="title">Add a chart</div>
+                <div className="slot-actions">
+                  <select
+                    className="add-select"
+                    value={sel as any}
+                    onChange={(e) =>
+                      setPendingAdd({
+                        ...pendingAdd,
+                        [slotIdx]: e.target.value as ChartId,
+                      })
+                    }
+                  >
+                    {remaining.length === 0 ? (
+                      <option value="">No charts available</option>
+                    ) : (
+                      remaining.map((cid) => (
+                        <option key={cid} value={cid}>
+                          {chartDefs[cid].title}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <button
+                    className="add-btn"
+                    disabled={!remaining.length || !sel}
+                    onClick={() => sel && addAt(slotIdx, sel as ChartId)}
+                  >
+                    Add chart
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        : order.map((id) => {
+            const c = chartDefs[id];
+            return (
+              <div key={id}>
+                <ChartCard
+                  title={c.title}
+                  x={x}
+                  price={price}
+                  metric={c.metric}
+                  metricName={c.metricName}
+                  kind={c.kind}
+                  baseline={c.baseline}
+                  y2Range={c.y2Range}
+                  xRange={selectedRange}
+                  metricColor={c.metricColor}
+                  areaFillColor={c.areaFillColor}
+                />
+              </div>
+            );
+          })}
     </div>
   );
 }
