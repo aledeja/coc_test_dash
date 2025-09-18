@@ -124,6 +124,18 @@ function ChartCard({
   const startDefault = useMemo(() => new Date("2023-01-01"), []);
   const endDefault = lastTime;
 
+  // Calculate y2Range with 20% headroom for RealizedPrice_STH and RealizedCap
+  const calculatedY2Range = useMemo(() => {
+    if (metricName === "RealizedPrice_STH" || metricName === "RealizedCap") {
+      const maxValue = Math.max(...metric.filter((v) => Number.isFinite(v)));
+      const minValue = Math.min(...metric.filter((v) => Number.isFinite(v)));
+      const range = maxValue - minValue;
+      const headroom = range * 0.2; // 20% headroom
+      return [minValue - headroom, maxValue + headroom] as [number, number];
+    }
+    return undefined;
+  }, [metric, metricName]);
+
   const tracePrice: any = {
     x,
     y: price,
@@ -213,6 +225,7 @@ function ChartCard({
       gridcolor: gridColor,
       zeroline: false,
       ...(y2Range ? { range: y2Range } : {}),
+      ...(calculatedY2Range ? { range: calculatedY2Range } : {}),
     },
     images: [
       {
@@ -276,11 +289,35 @@ export default function CsvDashboard() {
   );
   const latestDate = x.length ? x[x.length - 1] : new Date();
   const since2022 = useMemo(
-    () => [new Date("2022-01-01"), latestDate] as [Date, Date],
+    () => [new Date("2022-05-14"), latestDate] as [Date, Date],
     [latestDate]
   );
   const lastYear = useMemo(
     () => [new Date("2024-01-01"), latestDate] as [Date, Date],
+    [latestDate]
+  );
+  const lastSixMonths = useMemo(
+    () =>
+      [
+        new Date(latestDate.getTime() - 6 * 30 * 24 * 60 * 60 * 1000),
+        latestDate,
+      ] as [Date, Date],
+    [latestDate]
+  );
+  const lastMonth = useMemo(
+    () =>
+      [
+        new Date(latestDate.getTime() - 30 * 24 * 60 * 60 * 1000),
+        latestDate,
+      ] as [Date, Date],
+    [latestDate]
+  );
+  const lastWeek = useMemo(
+    () =>
+      [
+        new Date(latestDate.getTime() - 7 * 24 * 60 * 60 * 1000),
+        latestDate,
+      ] as [Date, Date],
     [latestDate]
   );
   const [selectedRange, setSelectedRange] = useState<[Date, Date]>(since2022);
@@ -303,7 +340,7 @@ export default function CsvDashboard() {
       </div>
       <div className="zoom-controls" style={{ gridColumn: "1 / -1" }}>
         <button
-          className="zoom-btn"
+          className="zoom-btn active"
           onClick={(e) => {
             document
               .querySelectorAll(".zoom-btn")
@@ -324,7 +361,43 @@ export default function CsvDashboard() {
             setSelectedRange(lastYear);
           }}
         >
-          Last Year
+          1Y
+        </button>
+        <button
+          className="zoom-btn"
+          onClick={(e) => {
+            document
+              .querySelectorAll(".zoom-btn")
+              .forEach((b) => b.classList.remove("active"));
+            (e.currentTarget as HTMLButtonElement).classList.add("active");
+            setSelectedRange(lastSixMonths);
+          }}
+        >
+          6M
+        </button>
+        <button
+          className="zoom-btn"
+          onClick={(e) => {
+            document
+              .querySelectorAll(".zoom-btn")
+              .forEach((b) => b.classList.remove("active"));
+            (e.currentTarget as HTMLButtonElement).classList.add("active");
+            setSelectedRange(lastMonth);
+          }}
+        >
+          1M
+        </button>
+        <button
+          className="zoom-btn"
+          onClick={(e) => {
+            document
+              .querySelectorAll(".zoom-btn")
+              .forEach((b) => b.classList.remove("active"));
+            (e.currentTarget as HTMLButtonElement).classList.add("active");
+            setSelectedRange(lastWeek);
+          }}
+        >
+          7D
         </button>
       </div>
       <ChartCard
