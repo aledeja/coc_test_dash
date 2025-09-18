@@ -216,7 +216,7 @@ function ChartCard({
     },
     images: [
       {
-        source: "/C_Logo_White.png",
+        source: "./C_Logo_White.png",
         xref: "paper",
         yref: "paper",
         x: 0.5,
@@ -263,32 +263,69 @@ function ChartCard({
 }
 
 export default function CsvDashboard() {
-  const { rows, error } = useCsv("/test_data_cursor.csv");
+  const { rows, error } = useCsv("./test_data_cursor.csv");
+
+  // Always compute derived data so hooks order is stable across renders
+  const x = useMemo(
+    () => (rows ? rows.map((r) => parseDayMonthYear(r.date)) : []),
+    [rows]
+  );
+  const price = useMemo(
+    () => (rows ? rows.map((r) => r.PriceUSD) : []),
+    [rows]
+  );
+  const latestDate = x.length ? x[x.length - 1] : new Date();
+  const since2022 = useMemo(
+    () => [new Date("2022-01-01"), latestDate] as [Date, Date],
+    [latestDate]
+  );
+  const lastYear = useMemo(
+    () => [new Date("2024-01-01"), latestDate] as [Date, Date],
+    [latestDate]
+  );
+  const [selectedRange, setSelectedRange] = useState<[Date, Date]>(since2022);
+  // Keep selected range consistent once data loads/updates
+  useEffect(() => {
+    setSelectedRange(since2022);
+  }, [since2022]);
+
   if (error)
     return <div style={{ padding: 16 }}>Failed to load CSV: {error}</div>;
   if (!rows) return <div style={{ padding: 16 }}>Loading…</div>;
 
-  const x = rows.map((r) => parseDayMonthYear(r.date));
-  const price = rows.map((r) => r.PriceUSD);
-  const latestDate = x.length ? x[x.length - 1] : new Date();
-  const since2022: [Date, Date] = [new Date("2022-01-01"), latestDate];
-  const lastYear: [Date, Date] = [new Date("2024-01-01"), latestDate];
-  const [selectedRange, setSelectedRange] = useState<[Date, Date]>(since2022);
-
   return (
     <div className="wrap">
-      <div className="zoom-heading" style={{ gridColumn: "1 / -1", textAlign: "center" }}>Zoom settings</div>
+      <div
+        className="zoom-heading"
+        style={{ gridColumn: "1 / -1", textAlign: "center" }}
+      >
+        Zoom settings
+      </div>
       <div className="zoom-controls" style={{ gridColumn: "1 / -1" }}>
-        <button className="zoom-btn" onClick={(e) => {
-          document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.remove('active'));
-          (e.currentTarget as HTMLButtonElement).classList.add('active');
-          setSelectedRange(since2022);
-        }}>Since 2022</button>
-        <button className="zoom-btn" onClick={(e) => {
-          document.querySelectorAll('.zoom-btn').forEach(b=>b.classList.remove('active'));
-          (e.currentTarget as HTMLButtonElement).classList.add('active');
-          setSelectedRange(lastYear);
-        }}>Last Year</button>
+        <button
+          className="zoom-btn"
+          onClick={(e) => {
+            document
+              .querySelectorAll(".zoom-btn")
+              .forEach((b) => b.classList.remove("active"));
+            (e.currentTarget as HTMLButtonElement).classList.add("active");
+            setSelectedRange(since2022);
+          }}
+        >
+          Since 2022
+        </button>
+        <button
+          className="zoom-btn"
+          onClick={(e) => {
+            document
+              .querySelectorAll(".zoom-btn")
+              .forEach((b) => b.classList.remove("active"));
+            (e.currentTarget as HTMLButtonElement).classList.add("active");
+            setSelectedRange(lastYear);
+          }}
+        >
+          Last Year
+        </button>
       </div>
       <ChartCard
         title="SOPR_STH"
