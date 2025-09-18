@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multi‑Axis Lines — uPlot Demo</title>
+    <style>
+      :root {
+        --bg: #0b0b0c;
+        --card: #111215;
+        --grid: #1a1c21;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+      }
+      html,
+      body {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Inter, Arial;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .wrap {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 12px;
+        display: grid;
+        gap: 12px;
+        grid-template-columns: 1fr 1fr;
+      }
+      .panel {
+        background: var(--card);
+        border-radius: 14px;
+        padding: 8px 8px 2px 8px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+      .title {
+        font-weight: 650;
+        font-size: 20px;
+        letter-spacing: 0.2px;
+        margin: 8px 6px;
+        text-align: center;
+      }
+      .latest-line {
+        font-weight: 500;
+        font-size: 16px;
+        color: var(--muted);
+        text-align: center;
+        margin: 2px 6px 6px;
+      }
+      .chart {
+        height: 400px;
+      }
+      .chart.small {
+        height: 200px;
+      }
+      .meta {
+        font-size: 12px;
+        color: var(--muted);
+        margin: 0 6px 6px;
+      }
+      .u-legend {
+        display: none;
+      }
+      .tooltip {
+        position: absolute;
+        pointer-events: none;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.65);
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 12px;
+        backdrop-filter: blur(2px);
+      }
+      .select-rect {
+        position: absolute;
+        pointer-events: none;
+        z-index: 5;
+        border: 1px dashed var(--muted);
+        background: rgba(96, 165, 250, 0.15);
+      }
+      .axis-hit {
+        position: absolute;
+        z-index: 20;
+        background: transparent;
+        pointer-events: auto;
+      }
+      .axis-hit.vert {
+        cursor: ns-resize;
+      }
+      .axis-hit.horz {
+        cursor: ew-resize;
+      }
+      @media (max-width: 800px) {
+        .wrap {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 640px) {
+        .wrap {
+          padding: 6px;
+        }
+        .panel {
+          padding: 6px 6px 2px 6px; /* tighter sides */
+          position: relative;
+        }
+        .chart {
+          height: 390px; /* +20% from 325px */
+        }
+        .chart.small {
+          height: 216px; /* +20% from 180px */
+        }
+        /* Mobile: left-align headings and latest line */
+        .title {
+          text-align: left;
+          padding-right: 110px;
+        }
+        .latest-line {
+          text-align: left;
+          font-size: 12px;
+        }
+        /* Mobile: enlarge Plotly modebar buttons and position in title row */
+        .js-plotly-plot {
+          overflow: visible;
+        }
+        .js-plotly-plot .modebar {
+          right: 6px !important;
+          top: -28px !important; /* lift into the title row */
+          padding: 5px 4px; /* ~-15% */
+        }
+        .js-plotly-plot .modebar-btn {
+          padding: 5px 5px !important;
+        }
+        .js-plotly-plot .modebar-btn svg {
+          width: 19px;
+          height: 19px;
+        }
+      }
+
+      .zoom-controls {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .zoom-heading {
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.2px;
+        margin: 12px 12px 6px;
+        text-align: center;
+      }
+
+      .zoom-btn {
+        background: var(--card);
+        border: 1px solid var(--grid);
+        color: var(--text);
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s ease;
+      }
+
+      .zoom-btn:hover {
+        background: var(--grid);
+        border-color: var(--text);
+      }
+
+      .zoom-btn.active {
+        background: #00aab7;
+        border-color: #00aab7;
+        color: white;
+      }
+    </style>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/uplot@1.6.30/dist/uPlot.min.css"
+    />
+    <script src="https://unpkg.com/uplot@1.6.30/dist/uPlot.iife.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-basic-2.27.1.min.js"></script>
+  </head>
+  <body>
+    <div class="zoom-heading">Zoom settings</div>
+    <div class="zoom-controls">
+      <button class="zoom-btn active" data-period="all">Since 2022</button>
+      <button class="zoom-btn" data-period="lastyear">Last Year</button>
+    </div>
+
+    <div class="wrap">
+      <!-- Price vs SOPR_STH -->
+      <div class="panel">
+        <div class="title">SOPR (STH)</div>
+        <div class="latest-line" id="latest-sopr"></div>
+        <div id="plotly-sopr" class="chart"></div>
+      </div>
+
+      <!-- Price vs Realized Profit -->
+      <div class="panel">
+        <div class="title">Realized Profit</div>
+        <div class="latest-line" id="latest-profit"></div>
+        <div id="plotly-profit" class="chart"></div>
+      </div>
+
+      <!-- Price vs MVRV_STH -->
+      <div class="panel">
+        <div class="title">MVRV (STH)</div>
+        <div class="latest-line" id="latest-mvrv"></div>
+        <div id="plotly-mvrv" class="chart"></div>
+      </div>
+
+      <!-- Price vs Realized Cap -->
+      <div class="panel">
+        <div class="title">Realized Cap</div>
+        <div class="latest-line" id="latest-rcap"></div>
+        <div id="plotly-rcap" class="chart"></div>
+      </div>
+
+      <!-- Price vs Realized Price STH -->
+      <div class="panel">
+        <div class="title">Realized Price (STH)</div>
+        <div class="latest-line" id="latest-rprice"></div>
+        <div id="plotly-rprice" class="chart"></div>
+      </div>
+    </div>
+
+    <script>
+      // colors & helpers
+      const colorPrice = "#cfd5ff";
+      const colorSopr = "#34d399";
+      const colorProfit = "#60a5fa";
+      const colorMvrv = "#f59e0b";
+      const colorCapStroke = "#7dd3fc";
+      const colorCapFill = "rgba(125, 211, 252, .15)";
+      const colorRPrice = "#f472b6";
+      const gridColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--grid")
+        .trim();
+      const textColor = getComputedStyle(document.documentElement)
+        .getPropertyValue("--text")
+        .trim();
+      // compute BTC price axis range from $5,000 up to highest data point (log scale)
+      function computePriceLogRange(prices) {
+        let maxP = 5000;
+        for (let i = 0; i < prices.length; i++) {
+          const p = prices[i];
+          if (p != null && isFinite(p)) {
+            if (p > maxP) maxP = p;
+          }
+        }
+        return [Math.log10(5000), Math.log10(maxP)];
+      }
+
+      function parseDateToEpochSeconds(d) {
+        const [dd, mm, yyyy] = d.split("/").map(Number);
+        const dt = new Date(Date.UTC(yyyy, mm - 1, dd, 12, 0, 0));
+        return Math.floor(dt.getTime() / 1000);
+      }
+
+      async function loadCsv(url) {
+        const res = await fetch(url);
+        const text = await res.text();
+        const rows = text.trim().split(/\r?\n/);
+        const header = rows.shift().split(",");
+        const colIdx = Object.fromEntries(header.map((h, i) => [h.trim(), i]));
+        const x = [];
+        const PriceUSD = [];
+        const SOPR_STH = [];
+        const RealizedProfit = [];
+        const MVRV_STH = [];
+        const RealizedCap = [];
+        const RealizedPrice_STH = [];
+        for (const r of rows) {
+          if (!r) continue;
+          const cells = r.split(",");
+          const ts = parseDateToEpochSeconds(cells[colIdx["date"]]);
+          x.push(ts);
+          PriceUSD.push(parseFloat(cells[colIdx["PriceUSD"]]));
+          SOPR_STH.push(parseFloat(cells[colIdx["SOPR_STH"]]));
+          RealizedProfit.push(parseFloat(cells[colIdx["RealizedProfit"]]));
+          MVRV_STH.push(parseFloat(cells[colIdx["MVRV_STH"]]));
+          RealizedCap.push(parseFloat(cells[colIdx["RealizedCap"]]));
+          RealizedPrice_STH.push(
+            parseFloat(cells[colIdx["RealizedPrice_STH"]])
+          );
+        }
+        return {
+          x,
+          PriceUSD,
+          SOPR_STH,
+          RealizedProfit,
+          MVRV_STH,
+          RealizedCap,
+          RealizedPrice_STH,
+        };
+      }
+
+      function makeDualAxesOptions(container) {
+        return {
+          width: container.clientWidth,
+          height: container.clientHeight || 320,
+          tzDate: (ts) => new Date(ts * 1000),
+          scales: { x: { time: true }, price: {}, metric: {} },
+          axes: [
+            { grid: { show: true }, stroke: gridColor },
+            {
+              scale: "price",
+              side: 1,
+              label: "BTC Price ($)",
+              grid: { show: true },
+              stroke: textColor,
+              space: 64,
+            },
+            {
+              scale: "metric",
+              side: 3,
+              label: "Metric",
+              grid: { show: false },
+              stroke: textColor,
+              space: 72,
+            },
+          ],
+          series: [
+            {},
+            { label: "BTC", scale: "price", stroke: colorPrice, width: 2 },
+          ],
+          cursor: { points: { size: 6 } },
+        };
+      }
+
+      function rangeAround(target, data, pad = 0.1) {
+        let min = Infinity,
+          max = -Infinity;
+        for (const v of data) {
+          if (!Number.isFinite(v)) continue;
+          min = Math.min(min, v);
+          max = Math.max(max, v);
+        }
+        const spread = Math.max(Math.abs(max - target), Math.abs(target - min));
+        const r = spread * (1 + pad);
+        return [target - r, target + r];
+      }
+
+      function rangeSymmetric(data, pad = 0.1) {
+        let a = 0;
+        for (const v of data) a = Math.max(a, Math.abs(v));
+        a *= 1 + pad;
+        return [-a, a];
+      }
+
+      function rangePositive(data, pad = 0.1) {
+        let max = 0;
+        for (const v of data) if (Number.isFinite(v)) max = Math.max(max, v);
+        return [0, max * (1 + pad)];
+      }
+
+      function rangeExpanded(data, topExtra = 0.8, bottomExtra = 0.0) {
+        let min = Infinity,
+          max = -Infinity;
+        for (const v of data) {
+          if (!Number.isFinite(v)) continue;
+          min = Math.min(min, v);
+          max = Math.max(max, v);
+        }
+        const d = Math.max(1e-9, max - min);
+        return [min - d * bottomExtra, max + d * topExtra];
+      }
+
+      // watermark plugin (centered in plot area, reload once image loads)
+      function watermarkPlugin(url, alpha = 0.5, size = 0.35) {
+        const img = new Image();
+        if (!url.startsWith("file://")) img.crossOrigin = "anonymous";
+        img.src = url;
+        let chart = null;
+        img.onload = () => {
+          if (chart) chart.redraw();
+        };
+        return {
+          hooks: {
+            init: (u) => {
+              chart = u;
+            },
+            draw: (u) => {
+              const ctx = u.ctx;
+              if (img && img.complete && img.naturalWidth) {
+                const { left, top, width, height } = u.bbox;
+                const w = width * size;
+                const h = (w * img.naturalHeight) / img.naturalWidth;
+                const x = left + (width - w) / 2;
+                const y = top + (height - h) / 2;
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.drawImage(img, x, y, w, h);
+                ctx.restore();
+              }
+            },
+          },
+        };
+      }
+
+      // tooltip plugin (shows values near cursor)
+      function tooltipPlugin(seriesIdxs, labels, formatters) {
+        let el;
+        return {
+          hooks: {
+            init: (u) => {
+              el = document.createElement("div");
+              el.className = "tooltip";
+              el.style.display = "none";
+              u.root.appendChild(el);
+              u.root.style.position = "relative";
+            },
+            setCursor: (u) => {
+              const idx = u.cursor.idx;
+              if (idx == null) {
+                el.style.display = "none";
+                return;
+              }
+              const t = u.data[0][idx];
+              let html = `<div style=\"opacity:.9\">${new Date(
+                t * 1000
+              ).toLocaleDateString()}</div>`;
+              for (let i = 0; i < seriesIdxs.length; i++) {
+                const si = seriesIdxs[i];
+                const v = u.data[si][idx];
+                const lab = labels[i];
+                const col = u.series[si].stroke;
+                const val = formatters[i](v);
+                html += `<div><span style=\"color:${col}\">${lab}:</span> ${val}</div>`;
+              }
+              el.innerHTML = html;
+              el.style.display = "block";
+              // clamp tooltip within the plot bbox
+              const rawX = u.bbox.left + u.cursor.left + 12;
+              const rawY = u.bbox.top + u.cursor.top + 12;
+              const maxLeft = u.bbox.left + u.bbox.width - el.offsetWidth - 6;
+              const maxTop = u.bbox.top + u.bbox.height - el.offsetHeight - 6;
+              const left = Math.min(Math.max(rawX, u.bbox.left + 6), maxLeft);
+              const top = Math.min(Math.max(rawY, u.bbox.top + 6), maxTop);
+              el.style.left = `${left}px`;
+              el.style.top = `${top}px`;
+              el.style.transform = "";
+            },
+          },
+        };
+      }
+
+      // format helpers
+      function fmtUSD(n) {
+        if (!Number.isFinite(n)) return "–";
+        const abs = Math.abs(n);
+        if (abs >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
+        if (abs >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+        if (abs >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+        if (abs >= 1e3) return `$${(n / 1e3).toFixed(2)}k`;
+        return `$${n.toFixed(2)}`;
+      }
+      const fmt2 = (n) => (Number.isFinite(n) ? n.toFixed(2) : "–");
+      const fmt3 = (n) => (Number.isFinite(n) ? n.toFixed(3) : "–");
+
+      function buildSoprChart(x, price, sopr) {
+        const el = document.getElementById("chart-sopr");
+        const opts = makeDualAxesOptions(el);
+        opts.axes[2].label = "STH-SOPR";
+        // Add extra headroom so price visually appears above SOPR
+        opts.scales.metric.range = rangeExpanded(sopr, 1.2, 0.05);
+        opts.series.push({
+          label: "SOPR_STH",
+          scale: "metric",
+          stroke: colorSopr,
+          width: 2,
+        });
+        // baseline at 1
+        const baseline = sopr.map(() => 1);
+        opts.series.push({
+          label: "1.0",
+          scale: "metric",
+          stroke: "rgba(200,200,200,.7)",
+          width: 1,
+        });
+        // Use a relative path so it works when served from public/
+        const wmUrl = "./C_Logo_White.png";
+        opts.plugins = [
+          watermarkPlugin(wmUrl, 0.5, 0.28),
+          tooltipPlugin([1, 2], ["BTC", "SOPR_STH"], [fmtUSD, fmt3]),
+        ];
+        const u = new uPlot(opts, [x, price, sopr, baseline], el);
+        new ResizeObserver(() =>
+          u.setSize({ width: el.clientWidth, height: el.clientHeight || 320 })
+        ).observe(el);
+
+        // selection rectangle for zoom
+        const over = u.root.querySelector(".u-over");
+        const rect = document.createElement("div");
+        rect.className = "select-rect";
+        rect.style.display = "none";
+        u.root.appendChild(rect);
+        let sx = 0,
+          sy = 0,
+          dragging = false;
+        function clamp(val, min, max) {
+          return Math.min(Math.max(val, min), max);
+        }
+        over.addEventListener("mousedown", (e) => {
+          if (e.button !== 0) return;
+          const r = u.root.getBoundingClientRect();
+          const px = e.clientX - r.left;
+          const py = e.clientY - r.top;
+          if (px < u.bbox.left || px > u.bbox.left + u.bbox.width) return;
+          if (py < u.bbox.top || py > u.bbox.top + u.bbox.height) return;
+          dragging = true;
+          sx = clamp(px, u.bbox.left, u.bbox.left + u.bbox.width);
+          sy = clamp(py, u.bbox.top, u.bbox.top + u.bbox.height);
+          rect.style.left = sx + "px";
+          rect.style.top = sy + "px";
+          rect.style.width = "0px";
+          rect.style.height = "0px";
+          rect.style.display = "block";
+        });
+        over.addEventListener("mousemove", (e) => {
+          if (!dragging) return;
+          const r = u.root.getBoundingClientRect();
+          let cx = clamp(
+            e.clientX - r.left,
+            u.bbox.left,
+            u.bbox.left + u.bbox.width
+          );
+          let cy = clamp(
+            e.clientY - r.top,
+            u.bbox.top,
+            u.bbox.top + u.bbox.height
+          );
+          const left = Math.min(sx, cx),
+            top = Math.min(sy, cy);
+          const width = Math.abs(cx - sx),
+            height = Math.abs(cy - sy);
+          rect.style.left = left + "px";
+          rect.style.top = top + "px";
+          rect.style.width = width + "px";
+          rect.style.height = height + "px";
+        });
+        window.addEventListener("mouseup", (e) => {
+          if (!dragging) return;
+          dragging = false;
+          rect.style.display = "none";
+          const left = parseFloat(rect.style.left);
+          const top = parseFloat(rect.style.top);
+          const width = parseFloat(rect.style.width);
+          const height = parseFloat(rect.style.height);
+          if (width < 6 && height < 6) return;
+          const zoomX = document.getElementById("zoomX").checked;
+          const zoomY = document.getElementById("zoomY").checked;
+          if (zoomX) {
+            const x0 = u.posToVal(left, "x");
+            const x1 = u.posToVal(left + width, "x");
+            u.setScale("x", { min: Math.min(x0, x1), max: Math.max(x0, x1) });
+          }
+          if (zoomY) {
+            const y0 = u.posToVal(top + height, "price");
+            const y1 = u.posToVal(top, "price");
+            u.setScale("price", {
+              min: Math.min(y0, y1),
+              max: Math.max(y0, y1),
+            });
+            const my0 = u.posToVal(top + height, "metric");
+            const my1 = u.posToVal(top, "metric");
+            u.setScale("metric", {
+              min: Math.min(my0, my1),
+              max: Math.max(my0, my1),
+            });
+          }
+        });
+
+        // axis controls removed for simplicity
+
+        // --- axis drag zoom (hover axis, click+drag) ---
+        // build invisible hit areas over axes
+        const hitLeft = document.createElement("div");
+        const hitRight = document.createElement("div");
+        const hitBottom = document.createElement("div");
+        hitLeft.className = "axis-hit vert";
+        hitRight.className = "axis-hit vert";
+        hitBottom.className = "axis-hit horz";
+        u.root.appendChild(hitLeft);
+        u.root.appendChild(hitRight);
+        u.root.appendChild(hitBottom);
+        function positionAxisHits() {
+          hitLeft.style.left = u.bbox.left - 36 + "px";
+          hitLeft.style.top = u.bbox.top + "px";
+          hitLeft.style.width = "34px";
+          hitLeft.style.height = u.bbox.height + "px";
+
+          hitRight.style.left = u.bbox.left + u.bbox.width + 2 + "px";
+          hitRight.style.top = u.bbox.top + "px";
+          hitRight.style.width = "34px";
+          hitRight.style.height = u.bbox.height + "px";
+
+          hitBottom.style.left = u.bbox.left + "px";
+          hitBottom.style.top = u.bbox.top + u.bbox.height + 2 + "px";
+          hitBottom.style.width = u.bbox.width + "px";
+          hitBottom.style.height = "22px";
+        }
+        positionAxisHits();
+        u.subscribe("setSize", positionAxisHits);
+        u.subscribe("setScale", positionAxisHits);
+
+        // generic drag handler to update scale during drag
+        function attachAxisDrag(hitEl, scaleId, isVertical) {
+          let dragging = false,
+            startPos = 0,
+            startMin = 0,
+            startMax = 0;
+          hitEl.addEventListener("mousedown", (e) => {
+            if (e.button !== 0) return;
+            dragging = true;
+            startPos = isVertical ? e.clientY : e.clientX;
+            const sc = u.scales[scaleId];
+            startMin = sc.min;
+            startMax = sc.max;
+            document.body.style.userSelect = "none";
+            e.preventDefault();
+          });
+          window.addEventListener("mousemove", (e) => {
+            if (!dragging) return;
+            const cur = isVertical ? e.clientY : e.clientX;
+            const deltaPx = cur - startPos;
+            // convert pixel delta to value delta around current range mid
+            const rng = startMax - startMin;
+            if (!isFinite(rng) || rng === 0) return;
+            const pxPerVal = (isVertical ? u.bbox.height : u.bbox.width) / rng;
+            if (!isFinite(pxPerVal) || pxPerVal === 0) return;
+            const deltaVal = deltaPx / pxPerVal;
+            let newMin = startMin + (isVertical ? -deltaVal : deltaVal);
+            let newMax = startMax + (isVertical ? -deltaVal : deltaVal);
+            u.setScale(scaleId, { min: newMin, max: newMax });
+          });
+          window.addEventListener("mouseup", () => {
+            dragging = false;
+            document.body.style.userSelect = "";
+          });
+        }
+        attachAxisDrag(hitLeft, "price", true);
+        attachAxisDrag(hitRight, "metric", true);
+        attachAxisDrag(hitBottom, "x", false);
+
+        // Also attach drag directly to uPlot's axis elements (more robust)
+        function attachAxisDragToAxisDom(
+          selector,
+          scaleId,
+          isVertical,
+          cursor
+        ) {
+          const elAx = u.root.querySelector(selector);
+          if (!elAx) return;
+          elAx.style.pointerEvents = "auto";
+          if (cursor) elAx.style.cursor = cursor;
+          attachAxisDrag(elAx, scaleId, isVertical);
+        }
+        attachAxisDragToAxisDom(".u-ax-l", "price", true, "ns-resize");
+        attachAxisDragToAxisDom(".u-ax-r", "metric", true, "ns-resize");
+        attachAxisDragToAxisDom(".u-ax-b", "x", false, "ew-resize");
+      }
+
+      function buildProfitChart(x, price, profit) {
+        const el = document.getElementById("chart-profit");
+        const opts = makeDualAxesOptions(el);
+        opts.axes[2].label = "Realized Profit";
+        // Increase top padding to bias bars lower
+        opts.scales.metric.range = rangePositive(profit, 1.2);
+        // bars on right axis
+        opts.series.push({
+          label: "RealizedProfit",
+          scale: "metric",
+          stroke: colorProfit,
+          fill: "rgba(96,165,250,.25)",
+          paths: uPlot.paths.bars({}),
+        });
+        opts.plugins = [
+          watermarkPlugin(
+            "file:///C:/Users/alecd/OneDrive/Pictures/C_Logo_White.png",
+            0.5,
+            0.22
+          ),
+          tooltipPlugin([1, 2], ["BTC", "RealizedProfit"], [fmtUSD, fmtUSD]),
+        ];
+        const u = new uPlot(opts, [x, price, profit], el);
+        new ResizeObserver(() =>
+          u.setSize({ width: el.clientWidth, height: el.clientHeight || 320 })
+        ).observe(el);
+      }
+
+      function buildMvrvChart(x, price, mvrvRaw) {
+        // oscillator around 0 using delta from 1.0
+        const mvrv = mvrvRaw.map((v) => v - 1);
+        const el = document.getElementById("chart-mvrv");
+        const opts = makeDualAxesOptions(el);
+        opts.axes[2].label = "MVRV_STH (Δ from 1)";
+        // Give more headroom above zero
+        opts.scales.metric.range = rangeExpanded(mvrv, 0.9, 0.2);
+        opts.series.push({
+          label: "MVRV_STH Δ",
+          scale: "metric",
+          stroke: colorMvrv,
+          width: 2,
+        });
+        const zero = mvrv.map(() => 0);
+        opts.series.push({
+          label: "0",
+          scale: "metric",
+          stroke: "rgba(200,200,200,.7)",
+          width: 1,
+        });
+        opts.plugins = [
+          watermarkPlugin(
+            "file:///C:/Users/alecd/OneDrive/Pictures/C_Logo_White.png",
+            0.5,
+            0.22
+          ),
+          tooltipPlugin([1, 2], ["BTC", "MVRV_STH Δ"], [fmtUSD, fmt3]),
+        ];
+        const u = new uPlot(opts, [x, price, mvrv, zero], el);
+        new ResizeObserver(() =>
+          u.setSize({ width: el.clientWidth, height: el.clientHeight || 320 })
+        ).observe(el);
+      }
+
+      function buildRealizedCapChart(x, price, cap) {
+        const el = document.getElementById("chart-rcap");
+        const opts = makeDualAxesOptions(el);
+        opts.axes[2].label = "RealizedCap";
+        opts.series.push({
+          label: "RealizedCap",
+          scale: "metric",
+          stroke: colorCapStroke,
+          width: 1.5,
+          fill: colorCapFill,
+        });
+        // Add headroom so area sits visually below price
+        opts.scales.metric.range = rangeExpanded(cap, 0.6, 0.05);
+        opts.plugins = [
+          watermarkPlugin(
+            "file:///C:/Users/alecd/OneDrive/Pictures/C_Logo_White.png",
+            0.5,
+            0.22
+          ),
+          tooltipPlugin([1, 2], ["BTC", "RealizedCap"], [fmtUSD, fmtUSD]),
+        ];
+        const u = new uPlot(opts, [x, price, cap], el);
+        new ResizeObserver(() =>
+          u.setSize({ width: el.clientWidth, height: el.clientHeight || 320 })
+        ).observe(el);
+      }
+
+      function buildRealizedPriceChart(x, price, rprice) {
+        const el = document.getElementById("chart-rprice");
+        const opts = makeDualAxesOptions(el);
+        opts.axes[2].label = "RealizedPrice_STH";
+        opts.series.push({
+          label: "RealizedPrice_STH",
+          scale: "metric",
+          stroke: colorRPrice,
+          width: 2,
+        });
+        // Slight headroom so it sits below price visually
+        opts.scales.metric.range = rangeExpanded(rprice, 0.4, 0.05);
+        opts.plugins = [
+          watermarkPlugin(
+            "file:///C:/Users/alecd/OneDrive/Pictures/C_Logo_White.png",
+            0.5,
+            0.22
+          ),
+          tooltipPlugin([1, 2], ["BTC", "RealizedPrice_STH"], [fmtUSD, fmtUSD]),
+        ];
+        const u = new uPlot(opts, [x, price, rprice], el);
+        new ResizeObserver(() =>
+          u.setSize({ width: el.clientWidth, height: el.clientHeight || 320 })
+        ).observe(el);
+      }
+
+      // Plotly implementation (active)
+      function buildSoprPlotly(t, price, sopr) {
+        const tracePrice = {
+          type: "scatter",
+          mode: "lines",
+          name: "BTC",
+          x: t,
+          y: price,
+          line: { color: colorPrice, width: 0.9 },
+          yaxis: "y",
+        };
+        const traceSopr = {
+          type: "scatter",
+          mode: "lines",
+          name: "SOPR_STH",
+          x: t,
+          y: sopr,
+          line: { color: colorSopr, width: 1.4 },
+          yaxis: "y2",
+        };
+        const traceBase = {
+          type: "scatter",
+          mode: "lines",
+          name: "1.0",
+          x: t,
+          y: sopr.map(() => 1),
+          line: { color: "rgba(200,200,200,.6)", width: 1, dash: "dot" },
+          yaxis: "y2",
+          hoverinfo: "skip",
+        };
+
+        const cardColor = getComputedStyle(document.documentElement)
+          .getPropertyValue("--card")
+          .trim();
+
+        const layout = {
+          paper_bgcolor: cardColor,
+          plot_bgcolor: cardColor,
+          font: { color: textColor },
+          margin: { l: 64, r: 64, t: 28, b: 48 },
+          xaxis: {
+            range: [new Date("2023-01-01"), new Date(Math.max(...t))],
+            gridcolor: gridColor,
+            zeroline: false,
+            showspikes: true,
+            spikemode: "across",
+            spikesnap: "cursor",
+            spikethickness: 1,
+          },
+          yaxis: {
+            title: "BTC Price ($)",
+            type: "log",
+            range: computePriceLogRange(price),
+            nticks: 2,
+            showgrid: false,
+            zeroline: false,
+            tickformat: ",~s",
+            tickprefix: "$",
+            hoverformat: ",.2f",
+          },
+          yaxis2: {
+            title: "STH-SOPR",
+            overlaying: "y",
+            side: "right",
+            gridcolor: gridColor,
+            zeroline: false,
+          },
+          images: [
+            {
+              source: "./C_Logo_White.png",
+              xref: "paper",
+              yref: "paper",
+              x: 0.5,
+              y: 0.5,
+              sizex: 0.35,
+              sizey: 0.35,
+              xanchor: "center",
+              yanchor: "middle",
+              opacity: 0.25,
+              layer: "below",
+            },
+          ],
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            x: 0.5,
+            xanchor: "center",
+            y: -0.15,
+          },
+        };
+
+        const config = {
+          responsive: true,
+          displaylogo: false,
+          scrollZoom: false,
+          dragmode: "pan",
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
+        };
+
+        Plotly.newPlot(
+          "plotly-sopr",
+          [tracePrice, traceSopr, traceBase],
+          layout,
+          config
+        );
+      }
+
+      // Realized Profit Chart (Daily Bar Chart)
+      function buildProfitPlotly(t, price, profit) {
+        const tracePrice = {
+          type: "scatter",
+          mode: "lines",
+          name: "BTC",
+          x: t,
+          y: price,
+          line: { color: colorPrice, width: 0.9 },
+          yaxis: "y",
+        };
+        const traceProfit = {
+          type: "bar",
+          name: "Realized Profit",
+          x: t,
+          y: profit,
+          marker: { color: colorProfit },
+          yaxis: "y2",
+        };
+
+        const cardColor = getComputedStyle(document.documentElement)
+          .getPropertyValue("--card")
+          .trim();
+
+        const layout = {
+          paper_bgcolor: cardColor,
+          plot_bgcolor: cardColor,
+          font: { color: textColor },
+          margin: { l: 64, r: 64, t: 28, b: 48 },
+          xaxis: {
+            range: [new Date("2023-01-01"), new Date(Math.max(...t))],
+            gridcolor: gridColor,
+            zeroline: false,
+            showspikes: true,
+            spikemode: "across",
+            spikesnap: "cursor",
+            spikethickness: 1,
+          },
+          yaxis: {
+            title: "BTC Price ($)",
+            type: "log",
+            range: computePriceLogRange(price),
+            nticks: 2,
+            showgrid: false,
+            zeroline: false,
+            tickformat: ",~s",
+            tickprefix: "$",
+            hoverformat: ",.2f",
+          },
+          yaxis2: {
+            title: "Realized Profit",
+            overlaying: "y",
+            side: "right",
+            gridcolor: gridColor,
+            zeroline: false,
+          },
+          images: [
+            {
+              source: "./C_Logo_White.png",
+              xref: "paper",
+              yref: "paper",
+              x: 0.5,
+              y: 0.5,
+              sizex: 0.35,
+              sizey: 0.35,
+              xanchor: "center",
+              yanchor: "middle",
+              opacity: 0.25,
+              layer: "below",
+            },
+          ],
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            x: 0.5,
+            xanchor: "center",
+            y: -0.15,
+          },
+        };
+
+        const config = {
+          responsive: true,
+          displaylogo: false,
+          scrollZoom: false,
+          dragmode: "pan",
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
+        };
+
+        Plotly.newPlot(
+          "plotly-profit",
+          [tracePrice, traceProfit],
+          layout,
+          config
+        );
+      }
+
+      // MVRV STH Chart (Oscillator around 0)
+      function buildMvrvPlotly(t, price, mvrv) {
+        const tracePrice = {
+          type: "scatter",
+          mode: "lines",
+          name: "BTC",
+          x: t,
+          y: price,
+          line: { color: colorPrice, width: 0.9 },
+          yaxis: "y",
+        };
+        const traceMvrv = {
+          type: "scatter",
+          mode: "lines",
+          name: "MVRV_STH",
+          x: t,
+          y: mvrv,
+          line: { color: colorMvrv, width: 1.4 },
+          yaxis: "y2",
+        };
+        const traceBase = {
+          type: "scatter",
+          mode: "lines",
+          name: "1.0",
+          x: t,
+          y: mvrv.map(() => 1),
+          line: { color: "rgba(200,200,200,.6)", width: 1, dash: "dot" },
+          yaxis: "y2",
+          hoverinfo: "skip",
+        };
+
+        const cardColor = getComputedStyle(document.documentElement)
+          .getPropertyValue("--card")
+          .trim();
+
+        const layout = {
+          paper_bgcolor: cardColor,
+          plot_bgcolor: cardColor,
+          font: { color: textColor },
+          margin: { l: 64, r: 64, t: 28, b: 48 },
+          xaxis: {
+            range: [new Date("2023-01-01"), new Date(Math.max(...t))],
+            gridcolor: gridColor,
+            zeroline: false,
+            showspikes: true,
+            spikemode: "across",
+            spikesnap: "cursor",
+            spikethickness: 1,
+          },
+          yaxis: {
+            title: "BTC Price ($)",
+            type: "log",
+            range: computePriceLogRange(price),
+            nticks: 2,
+            showgrid: false,
+            zeroline: false,
+            tickformat: ",~s",
+            tickprefix: "$",
+            hoverformat: ",.2f",
+          },
+          yaxis2: {
+            title: "MVRV_STH",
+            overlaying: "y",
+            side: "right",
+            range: [0.5, 2.5],
+            gridcolor: gridColor,
+            zeroline: false,
+          },
+          images: [
+            {
+              source: "./C_Logo_White.png",
+              xref: "paper",
+              yref: "paper",
+              x: 0.5,
+              y: 0.5,
+              sizex: 0.35,
+              sizey: 0.35,
+              xanchor: "center",
+              yanchor: "middle",
+              opacity: 0.25,
+              layer: "below",
+            },
+          ],
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            x: 0.5,
+            xanchor: "center",
+            y: -0.15,
+          },
+        };
+
+        const config = {
+          responsive: true,
+          displaylogo: false,
+          scrollZoom: false,
+          dragmode: "pan",
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
+        };
+
+        Plotly.newPlot(
+          "plotly-mvrv",
+          [tracePrice, traceMvrv, traceBase],
+          layout,
+          config
+        );
+      }
+
+      // Realized Cap Chart (Area chart)
+      function buildRealizedCapPlotly(t, price, rcap) {
+        const tracePrice = {
+          type: "scatter",
+          mode: "lines",
+          name: "BTC",
+          x: t,
+          y: price,
+          line: { color: colorPrice, width: 0.9 },
+          yaxis: "y",
+        };
+        const traceRcap = {
+          type: "scatter",
+          mode: "lines",
+          name: "Realized Cap",
+          x: t,
+          y: rcap,
+          fill: "tonexty",
+          fillcolor: colorCapFill,
+          line: { color: colorCapStroke, width: 1.4 },
+          yaxis: "y2",
+        };
+
+        const cardColor = getComputedStyle(document.documentElement)
+          .getPropertyValue("--card")
+          .trim();
+
+        const layout = {
+          paper_bgcolor: cardColor,
+          plot_bgcolor: cardColor,
+          font: { color: textColor },
+          margin: { l: 64, r: 64, t: 28, b: 48 },
+          xaxis: {
+            range: [new Date("2023-01-01"), new Date(Math.max(...t))],
+            gridcolor: gridColor,
+            zeroline: false,
+            showspikes: true,
+            spikemode: "across",
+            spikesnap: "cursor",
+            spikethickness: 1,
+          },
+          yaxis: {
+            title: "BTC Price ($)",
+            type: "log",
+            range: computePriceLogRange(price),
+            nticks: 2,
+            showgrid: false,
+            zeroline: false,
+            tickformat: ",~s",
+            tickprefix: "$",
+            hoverformat: ",.2f",
+          },
+          yaxis2: {
+            title: "Realized Cap",
+            overlaying: "y",
+            side: "right",
+            gridcolor: gridColor,
+            zeroline: false,
+          },
+          images: [
+            {
+              source: "./C_Logo_White.png",
+              xref: "paper",
+              yref: "paper",
+              x: 0.5,
+              y: 0.5,
+              sizex: 0.35,
+              sizey: 0.35,
+              xanchor: "center",
+              yanchor: "middle",
+              opacity: 0.25,
+              layer: "below",
+            },
+          ],
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            x: 0.5,
+            xanchor: "center",
+            y: -0.15,
+          },
+        };
+
+        const config = {
+          responsive: true,
+          displaylogo: false,
+          scrollZoom: false,
+          dragmode: "pan",
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
+        };
+
+        Plotly.newPlot("plotly-rcap", [tracePrice, traceRcap], layout, config);
+      }
+
+      // Realized Price STH Chart (Line Graph)
+      function buildRealizedPricePlotly(t, price, rprice) {
+        const tracePrice = {
+          type: "scatter",
+          mode: "lines",
+          name: "BTC",
+          x: t,
+          y: price,
+          line: { color: colorPrice, width: 0.9 },
+          yaxis: "y",
+        };
+        const traceRPrice = {
+          type: "scatter",
+          mode: "lines",
+          name: "Realized Price STH",
+          x: t,
+          y: rprice,
+          line: { color: colorRPrice, width: 1.4 },
+          yaxis: "y2",
+        };
+
+        const cardColor = getComputedStyle(document.documentElement)
+          .getPropertyValue("--card")
+          .trim();
+
+        const layout = {
+          paper_bgcolor: cardColor,
+          plot_bgcolor: cardColor,
+          font: { color: textColor },
+          margin: { l: 64, r: 64, t: 28, b: 48 },
+          xaxis: {
+            range: [new Date("2023-01-01"), new Date(Math.max(...t))],
+            gridcolor: gridColor,
+            zeroline: false,
+            showspikes: true,
+            spikemode: "across",
+            spikesnap: "cursor",
+            spikethickness: 1,
+          },
+          yaxis: {
+            title: "BTC Price ($)",
+            type: "log",
+            range: computePriceLogRange(price),
+            nticks: 2,
+            showgrid: false,
+            zeroline: false,
+            tickformat: ",~s",
+            tickprefix: "$",
+            hoverformat: ",.2f",
+          },
+          yaxis2: {
+            title: "Realized Price STH",
+            overlaying: "y",
+            side: "right",
+            gridcolor: gridColor,
+            zeroline: false,
+            tickformat: ",~s",
+            tickprefix: "$",
+            hoverformat: ",.2f",
+          },
+          images: [
+            {
+              source: "./C_Logo_White.png",
+              xref: "paper",
+              yref: "paper",
+              x: 0.5,
+              y: 0.5,
+              sizex: 0.35,
+              sizey: 0.35,
+              xanchor: "center",
+              yanchor: "middle",
+              opacity: 0.25,
+              layer: "below",
+            },
+          ],
+          showlegend: true,
+          legend: {
+            orientation: "h",
+            x: 0.5,
+            xanchor: "center",
+            y: -0.15,
+          },
+        };
+
+        const config = {
+          responsive: true,
+          displaylogo: false,
+          scrollZoom: false,
+          dragmode: "pan",
+          modeBarButtonsToRemove: [
+            "toImage",
+            "lasso2d",
+            "select2d",
+            "zoomIn2d",
+            "zoomOut2d",
+          ],
+        };
+
+        Plotly.newPlot(
+          "plotly-rprice",
+          [tracePrice, traceRPrice],
+          layout,
+          config
+        );
+      }
+
+      // Global variables to store chart references and data
+      let allCharts = [];
+      let chartData = null;
+
+      // Zoom functionality
+      function setupZoomControls() {
+        const buttons = document.querySelectorAll(".zoom-btn");
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            if (btn.id === "apply-range") return; // handled separately
+            // Remove active class from all buttons
+            buttons.forEach((b) => b.classList.remove("active"));
+            // Add active class to clicked button
+            btn.classList.add("active");
+
+            const period = btn.dataset.period;
+            zoomAllCharts(period);
+          });
+        });
+
+        // Custom range controls removed
+      }
+
+      function zoomAllCharts(period, customStart = null, customEnd = null) {
+        if (!chartData) return;
+
+        let startDate = null;
+        let endDate = null;
+
+        const tsDates = chartData.x.map((ts) => new Date(ts * 1000));
+        const latestDate = new Date(
+          Math.max(...tsDates.map((d) => d.getTime()))
+        );
+
+        switch (period) {
+          case "lastyear": {
+            // Fixed 2024 window: from 2024-01-01 to dataset's latest date
+            startDate = new Date("2024-01-01");
+            endDate = latestDate;
+            break;
+          }
+          case "custom": {
+            startDate = customStart || null;
+            endDate = customEnd || null;
+            break;
+          }
+          case "all":
+          default: {
+            startDate = null;
+            endDate = null;
+          }
+        }
+
+        const update =
+          startDate || endDate
+            ? { "xaxis.range": [startDate, endDate] }
+            : { "xaxis.range": [null, null] };
+
+        // Update all charts
+        const chartIds = [
+          "plotly-sopr",
+          "plotly-profit",
+          "plotly-mvrv",
+          "plotly-rcap",
+          "plotly-rprice",
+        ];
+        chartIds.forEach((id) => {
+          const element = document.getElementById(id);
+          if (element && element._fullLayout) {
+            Plotly.relayout(id, update);
+          }
+        });
+      }
+
+      (async () => {
+        const data = await loadCsv("test_data_cursor.csv");
+        chartData = data; // Store data globally for zoom functionality
+
+        // Build all Plotly charts (active)
+        const t = data.x.map((ts) => new Date(ts * 1000));
+
+        buildSoprPlotly(t, data.PriceUSD, data.SOPR_STH);
+        buildProfitPlotly(t, data.PriceUSD, data.RealizedProfit);
+        buildMvrvPlotly(t, data.PriceUSD, data.MVRV_STH);
+        buildRealizedCapPlotly(t, data.PriceUSD, data.RealizedCap);
+        buildRealizedPricePlotly(t, data.PriceUSD, data.RealizedPrice_STH);
+
+        // Update latest value badges (2 decimals, per metric)
+        function setLatest(elId, val, opts = {}) {
+          const el = document.getElementById(elId);
+          if (!el) return;
+          if (val == null || !isFinite(val)) {
+            el.textContent = "";
+            return;
+          }
+          const digits = opts.digits ?? 2;
+          const prefix = opts.prefix ?? "";
+          const suffix = opts.suffix ?? "";
+          el.textContent = `Latest Value: ${prefix}${val.toFixed(
+            digits
+          )}${suffix}`;
+        }
+        // find last valid values from arrays
+        const lastNum = (arr) => {
+          for (let i = arr.length - 1; i >= 0; i--) {
+            const v = arr[i];
+            if (v != null && isFinite(v)) return v;
+          }
+          return null;
+        };
+        setLatest("latest-sopr", lastNum(data.SOPR_STH));
+        setLatest("latest-profit", lastNum(data.RealizedProfit));
+        setLatest("latest-mvrv", lastNum(data.MVRV_STH));
+        setLatest("latest-rcap", lastNum(data.RealizedCap), {
+          prefix: "$",
+          digits: 0,
+        });
+        setLatest("latest-rprice", lastNum(data.RealizedPrice_STH), {
+          prefix: "$",
+        });
+
+        // Setup zoom controls after charts are created
+        setupZoomControls();
+
+        // Mobile typography tweaks for axes
+        function applyMobileTicks() {
+          const isMobile = window.matchMedia("(max-width: 640px)").matches;
+          // X-axis dates: 50% reduction as requested earlier
+          const xTickSize = isMobile ? 8 : 12;
+          // Y-axis values & labels: 25% reduction
+          const yTickSize = isMobile ? 9 : 12; // 12 -> 9
+          const yTitleSize = isMobile ? 11 : 14; // 14 -> 11
+          // Tighten left/right margins on mobile so chart fills width
+          const ml = isMobile ? 48 : 64;
+          const mr = isMobile ? 48 : 64;
+          const ids = [
+            "plotly-sopr",
+            "plotly-profit",
+            "plotly-mvrv",
+            "plotly-rcap",
+            "plotly-rprice",
+          ];
+          ids.forEach((id) => {
+            if (document.getElementById(id)) {
+              Plotly.relayout(id, {
+                "xaxis.tickfont.size": xTickSize,
+                "yaxis.tickfont.size": yTickSize,
+                "yaxis2.tickfont.size": yTickSize,
+                "yaxis.title.font.size": yTitleSize,
+                "yaxis2.title.font.size": yTitleSize,
+                "margin.l": ml,
+                "margin.r": mr,
+              });
+            }
+          });
+        }
+        applyMobileTicks();
+        window.addEventListener("resize", applyMobileTicks);
+
+        // Date inputs removed
+
+        // uPlot version preserved above for quick reactivation if needed
+      })();
+    </script>
+  </body>
+</html>
+image.png
