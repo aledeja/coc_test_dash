@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Plot from "react-plotly.js";
+import "../App.css";
 
 type DataRow = {
   date: string;
