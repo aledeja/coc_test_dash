@@ -429,6 +429,25 @@ export default function CsvDashboard() {
     {}
   );
   const [editing, setEditing] = useState(false);
+  const [listMode, setListMode] = useState(false);
+  const [listHoverIdx, setListHoverIdx] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    try {
+      const mq = window.matchMedia && window.matchMedia("(max-width: 640px)");
+      const set = () => setIsMobile(!!mq.matches);
+      if (mq && typeof mq.addEventListener === "function") {
+        mq.addEventListener("change", set);
+      }
+      set();
+      return () => {
+        if (mq && typeof mq.removeEventListener === "function")
+          mq.removeEventListener("change", set);
+      };
+    } catch {
+      setIsMobile(false);
+    }
+  }, []);
   const [draftOrder, setDraftOrder] = useState<ChartId[] | null>(null);
 
   // Persist on change
@@ -493,15 +512,78 @@ export default function CsvDashboard() {
   const beginEdit = () => {
     setDraftOrder([...order]);
     setEditing(true);
+    // Default to list mode on small screens for better UX
+    try {
+      const isSmall =
+        window.matchMedia && window.matchMedia("(max-width: 640px)").matches;
+      setListMode(!!isSmall);
+    } catch {}
   };
+  useEffect(() => {
+    if (editing && isMobile) setListMode(true);
+  }, [editing, isMobile]);
   const saveEdit = () => {
     setDraftOrder(null);
     setEditing(false);
+    setListHoverIdx(null);
   };
   const cancelEdit = () => {
     if (draftOrder) setOrder(draftOrder);
     setDraftOrder(null);
     setEditing(false);
+    setListHoverIdx(null);
+  };
+
+  const moveUp = (idx: number) => {
+    if (!editing || idx <= 0) return;
+    const next = [...order];
+    const tmp = next[idx - 1];
+    next[idx - 1] = next[idx];
+    next[idx] = tmp;
+    setOrder(next);
+  };
+  const moveDown = (idx: number) => {
+    if (!editing || idx >= order.length - 1) return;
+    const next = [...order];
+    const tmp = next[idx + 1];
+    next[idx + 1] = next[idx];
+    next[idx] = tmp;
+    setOrder(next);
+  };
+
+  // Drag & drop inside List Mode (mobile-friendly)
+  const listDragIdx = useRef<number | null>(null);
+  const handleListDragStart = (idx: number) => (e: React.DragEvent) => {
+    if (!editing || !listMode) return;
+    listDragIdx.current = idx;
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleListDragOver = (e: React.DragEvent) => {
+    if (!editing || !listMode) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+  const handleListDrop = (idx: number) => (e: React.DragEvent) => {
+    if (!editing || !listMode) return;
+    e.preventDefault();
+    const from = listDragIdx.current;
+    if (from == null || from === idx) return;
+    const next = [...order];
+    const [moved] = next.splice(from, 1);
+    next.splice(idx, 0, moved);
+    setOrder(next);
+    listDragIdx.current = null;
+    setListHoverIdx(null);
+  };
+  const handleListDragEnter = (idx: number) => (e: React.DragEvent) => {
+    if (!editing || !listMode) return;
+    e.preventDefault();
+    setListHoverIdx(idx);
+  };
+  const handleListDragLeave = (idx: number) => (e: React.DragEvent) => {
+    if (!editing || !listMode) return;
+    e.preventDefault();
+    setListHoverIdx((cur) => (cur === idx ? null : cur));
   };
 
   if (error)
@@ -578,7 +660,16 @@ export default function CsvDashboard() {
           7D
         </button>
       </div>
-      <div style={{ gridColumn: "1 / -1", textAlign: "right", marginTop: -6 }}>
+      <div
+        style={{
+          gridColumn: "1 / -1",
+          textAlign: "right",
+          marginTop: -6,
+          display: "flex",
+          gap: 8,
+          justifyContent: "flex-end",
+        }}
+      >
         {!editing ? (
           <button className="zoom-btn" onClick={beginEdit}>
             Customise
@@ -591,10 +682,100 @@ export default function CsvDashboard() {
             <button className="zoom-btn" onClick={cancelEdit}>
               Cancel
             </button>
+            <button
+              className={`zoom-btn ${listMode ? "active" : ""}`}
+              onClick={() => setListMode((v) => !v)}
+            >
+              List Mode
+            </button>
           </>
         )}
       </div>
-      {editing
+      {editing && listMode && (
+        <div className="panel" style={{ gridColumn: "1 / -1" }}>
+          <div className="title" style={{ marginBottom: 6 }}>
+            Reorder charts
+          </div>
+          <div
+            className="list-hint"
+            style={{ color: "#9aa3af", fontSize: 12, margin: "0 6px 10px 6px" }}
+          >
+            ⇅ Drag rows to reorder (press and hold on mobile)
+          </div>
+          {order.map((id, idx) => (
+            <div
+              key={id}
+              className="list-row"
+              draggable
+              onDragStartCapture={handleListDragStart(idx)}
+              onDragOverCapture={handleListDragOver}
+              onDrop={handleListDrop(idx)}
+              onDragEnterCapture={handleListDragEnter(idx)}
+              onDragLeaveCapture={handleListDragLeave(idx)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "6px 0",
+                borderBottom: "1px solid #1a1c21",
+                outline: listHoverIdx === idx ? "2px dashed #3d444d" : "none",
+                outlineOffset: "-2px",
+                cursor: "move",
+              }}
+            >
+              <div
+                draggable
+                onDragStart={handleListDragStart(idx)}
+                style={{ display: "flex", alignItems: "center", gap: 10 }}
+              >
+                <span style={{ color: "#9aa3af", fontSize: 14 }}>☰</span>
+                <span style={{ color: "#9aa3af", fontSize: 12 }}>
+                  #{idx + 1}
+                </span>
+                <span>{chartDefs[id].title}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  draggable={false}
+                  className="remove-btn"
+                  onClick={() => removeAt(idx)}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          {order.length < ALL_IDS.length && (
+            <div
+              style={{
+                marginTop: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <select
+                className="add-select"
+                onChange={(e) => addAt(order.length, e.target.value as ChartId)}
+                value=""
+              >
+                <option value="" disabled>
+                  Add chart…
+                </option>
+                {ALL_IDS.filter((cid) => !order.includes(cid)).map((cid) => (
+                  <option key={cid} value={cid}>
+                    {chartDefs[cid].title}
+                  </option>
+                ))}
+              </select>
+              <span style={{ color: "#9aa3af", fontSize: 12 }}>
+                Tip: Drag rows above to change order
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+      {editing && !listMode
         ? Array.from({ length: ALL_IDS.length }).map((_, slotIdx) => {
             const id = order[slotIdx];
             const remaining = ALL_IDS.filter((cid) => !order.includes(cid));
@@ -679,7 +860,8 @@ export default function CsvDashboard() {
               </div>
             );
           })
-        : order.map((id) => {
+        : !editing &&
+          order.map((id) => {
             const c = chartDefs[id];
             return (
               <div key={id}>
